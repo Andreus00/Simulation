@@ -1,0 +1,74 @@
+{
+  "asset": {
+    "copyright": "Model by Fabio Pellacini from github.com/~xelatihy/yocto-gl",
+    "version": "4.2"
+  },
+  "cameras": [
+    {
+      "name": "default",
+      "lens": 0.1,
+      "aperture": 0.0,
+      "aspect": 1,
+      "frame": [
+        0.97855, -0, 0.20601, 0.0698687, 0.940732, -0.331876, -0.193801,
+        0.339151, 0.920553, -0.2, 0.4, 0.9
+      ]
+    }
+  ],
+  "environments": [
+    {
+      "name": "sky",
+      "emission": [0.5, 0.5, 0.5],
+      "emission_tex": 1
+    }
+  ],
+  "textures": [
+    {
+      "name": "floor",
+      "uri": "textures/floor.png"
+    },
+    {
+      "name": "sky",
+      "uri": "textures/sky.hdr"
+    }
+  ],
+  "materials": [
+    {
+      "name": "floor",
+      "color": [0.7, 0.7, 0.7],
+      "color_tex": 0,
+      "specular": 0,
+      "type": "matte"
+    },
+    {
+      "name": "particles",
+      "color": [0.5, 0.5, 0.8],
+      "specular": 1,
+      "roughness": 1,
+      "type": "matte"
+    }
+  ],
+  "shapes": [
+    {
+      "name": "floor",
+      "uri": "shapes/floor.ply"
+    },
+    {
+      "name": "particles",
+      "uri": "shapes/particles.ply"
+    }
+  ],
+  "instances": [
+    {
+      "name": "floor",
+      "shape": 0,
+      "material": 0
+    },
+    {
+      "name": "particles",
+      "frame": [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0],
+      "shape": 1,
+      "material": 1
+    }
+  ]
+}
