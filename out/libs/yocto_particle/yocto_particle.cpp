@@ -36,6 +36,9 @@
 #include <iostream>
 #include <unordered_set>
 
+#define PARTICLE_DIAM 0.01
+#define EPSILON 0.0001
+#define SOLVER_ITERATIONS 3
 // -----------------------------------------------------------------------------
 // SIMULATION DATA AND API
 // -----------------------------------------------------------------------------
@@ -452,107 +455,70 @@ void simulate_frames(particle_scene& scene, const particle_params& params,
 
 // simulate pbd
 void simulate_pbd_2(particle_scene& scene, const particle_params& params) {
-  // // YOUR CODE GOES HERE
+  // YOUR CODE GOES HERE
 
-  // SAVE OLD POSITOINS
-  for (auto& particle : scene.shapes) {
-    particle.old_positions = particle.positions;
+  // add all rigid body shape constraints
+  for (int i = 0; i < scene.shapes.size(); i++) {
   }
-
+  // for all the particles
   for (auto& shape : scene.shapes) {
-    // PREDICT POSITIONS
     for (int i = 0; i < shape.positions.size(); i++) {
-      if (!shape.invmass[i]) continue;
-      // apply semi-implicit Euler to external forces
-      shape.velocities[i] += vec3f{0, -params.gravity, 0} * params.deltat;
-      shape.positions[i] += shape.velocities[i] * params.deltat;
+      // apply forces
+      if (shape.invmass[i] == 0) continue;
+      shape.velocities[i] += params.deltat * vec3f{0, -params.gravity, 0} +
+                             params.deltat * shape.forces[i];
+      shape.positions[i] += params.deltat * shape.velocities[i];
+      // mass scale
+      // if (shape.invmass[i] == 0 != 0.0) {
+      //   shape.invmass[i] = 1.f / ((1.f / shape.invmass[i]) *
+      //   exp(-shape.positions[]));
+      // } else {
+      //   shape.invmass[i] == 0 = 0.0;
+      // }
     }
-    // COMPUTE COLLISIONS
-    shape.collisions.clear();
-    for (int i = 0; i < shape.positions.size(); i++) {
-      if (!shape.invmass[i]) continue;
-      for (auto& collider : scene.colliders) {
-        auto hit_position = zero3f, hit_normal = zero3f;
-        if (!collide_collider(
-                collider, shape.positions[i], hit_position, hit_normal))
-          continue;
-        shape.collisions.push_back({i, hit_position, hit_normal});
-      }
-    }
-    // SOLVE CONSTRAINTS
-    for (auto i : range(params.pdbsteps)) {
-      // solve springs
-      for (auto& spring : shape.springs) {
-        auto p0      = spring.vert0;
-        auto p1      = spring.vert1;
-        auto invmass = shape.invmass[p0] + shape.invmass[p1];
-        if (!invmass) continue;
-        auto dir = shape.positions[p1] - shape.positions[p0];
-        auto len = length(dir);
-        dir /= len;
-        auto lambda = (1 - spring.coeff) * (len - spring.rest) / invmass;
-        shape.positions[p0] += shape.invmass[p0] * lambda * dir;
-        shape.positions[p1] -= shape.invmass[p1] * lambda * dir;
-      }
-      // solve collisions
-      for (auto& collision : shape.collisions) {
-        auto& particle = shape.positions[collision.vert];
-        if (!shape.invmass[collision.vert]) continue;
-        auto projection = dot(particle - collision.position, collision.normal);
-        if (projection >= 0) continue;
-        particle += -projection * collision.normal;
-      }
-      // solve other collisions
-    }
-    // COMPUTE VELOCITIES
-    for (int i = 0; i < shape.positions.size(); i++) {
-      if (!shape.invmass[i]) continue;
-      shape.velocities[i] = (shape.positions[i] - shape.old_positions[i]) /
-                            params.deltat;
-    }
-    // VELOCITY FILTER
-    for (int i = 0; i < shape.positions.size(); i++) {
-      if (!shape.invmass[i]) continue;
-      // damping
-      shape.velocities[i] *= (1 - params.dumping * params.deltat);
-      // sleeping
-      if (length(shape.velocities[i]) < params.minvelocity)
-        shape.velocities[i] = {0, 0, 0};
-    }
-    // RECOMPUTE NORMALS
-    if (shape.quads.size() > 0)
-      shape.normals = quads_normals(shape.quads, shape.positions);
-    else
-      shape.normals = triangles_normals(shape.triangles, shape.positions);
   }
-}
-
-// Simulate one step
-void simulate_frame(particle_scene& scene, const particle_params& params) {
-  switch (params.solver) {
-    case particle_solver_type::mass_spring:
-      return simulate_massspring(scene, params);
-    case particle_solver_type::position_based:
-      return simulate_pbd(scene, params);
-    default: throw std::invalid_argument("unknown solver");
+  // for all the particles
+  for (int x = 0; x < scene.shapes.size(); x++) {
+    auto shape = scene.shapes[x];
+    for (int i = 0; i < shape.positions.size(); i++) {
+      // find neighboring particles and solid contacts
+      for (int y = 0; y < scene.shapes.size(); y++) {
+        if (x == y) continue;
+        auto shape2 = scene.shapes[y];
+        for (int j = 0; j < shape2.positions.size(); j++) {
+          if (shape.invmass[i] == 0 && shape2.invmass[j] == 0) continue;
+          auto dist = distance(shape.positions[i], shape2.positions[j]);
+          if (dist < PARTICLE_DIAM - EPSILON) }
+      }
+    }
   }
-}
 
-// Simulate the whole sequence
-void simulate_frames(particle_scene& scene, const particle_params& params,
-    progress_callback progress_cb) {
-  // handle progress
-  auto progress = vec2i{0, 1 + (int)params.frames};
+  // Simulate one step
+  void simulate_frame(particle_scene & scene, const particle_params& params) {
+    switch (params.solver) {
+      case particle_solver_type::mass_spring:
+        return simulate_massspring(scene, params);
+      case particle_solver_type::position_based:
+        return simulate_pbd(scene, params);
+      default: throw std::invalid_argument("unknown solver");
+    }
+  }
 
-  if (progress_cb) progress_cb("init simulation", progress.x++, progress.y);
-  init_simulation(scene, params);
+  // Simulate the whole sequence
+  void simulate_frames(particle_scene & scene, const particle_params& params,
+      progress_callback progress_cb) {
+    // handle progress
+    auto progress = vec2i{0, 1 + (int)params.frames};
 
-  for (auto idx = 0; idx < params.frames; idx++) {
+    if (progress_cb) progress_cb("init simulation", progress.x++, progress.y);
+    init_simulation(scene, params);
+
+    for (auto idx = 0; idx < params.frames; idx++) {
+      if (progress_cb) progress_cb("simulate frames", progress.x++, progress.y);
+      simulate_frame(scene, params);
+    }
+
     if (progress_cb) progress_cb("simulate frames", progress.x++, progress.y);
-    simulate_frame(scene, params);
   }
-
-  if (progress_cb) progress_cb("simulate frames", progress.x++, progress.y);
-}
 
 }  // namespace yocto

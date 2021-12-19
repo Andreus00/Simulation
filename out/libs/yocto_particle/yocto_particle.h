@@ -60,6 +60,9 @@ using std::vector;
 // -----------------------------------------------------------------------------
 namespace yocto {
 
+// phases
+enum phase { SOLID, FLUID, GAS, NUM_PHASES };
+
 // Springs
 struct particle_spring {
   int   vert0 = -1;
@@ -83,6 +86,7 @@ struct particle_shape {
   vector<float> radius     = {};
   vector<float> invmass    = {};
   vector<vec3f> velocities = {};
+  vector<phase> phases     = {};
 
   // material data
   float spring_coeff = 0;
